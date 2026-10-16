@@ -47,13 +47,13 @@ about 8 ms once it is already up.
 <tr><th align="left">Linux · macOS · WSL</th><th align="left">Windows</th></tr>
 <tr><td>
 
-<pre><code>git clone &lt;this repo&gt; zim-claude
+<pre><code>git clone <this repo> zim-claude
 cd zim-claude
 ./install.sh</code></pre>
 
 </td><td>
 
-<pre><code>git clone &lt;this repo&gt; zim-claude
+<pre><code>git clone <this repo> zim-claude
 cd zim-claude\windows
 win-install.bat</code></pre>
 
@@ -64,14 +64,15 @@ That's it. Open a new terminal and run `zim-claude`.
 
 ### Which installer do I run?
 
-| Installer | Platform | What it sets up | Run it with |
-|---|---|---|---|
-| `install.sh` | Linux · macOS · WSL | CLI proxy `:4000` + the `zim-claude` command | `./install.sh` |
-| `windows\win-install.bat` | Windows | **both** proxies — `:4000` *and* the `:4002` gateway — plus `zim-claude` | `win-install.bat` |
-| `claude-desktop-integration/install.sh` | Linux · macOS | the `:4002` gateway only | `cd claude-desktop-integration && ./install.sh` |
+| Installer                               | Platform            | What it sets up                                                          | Run it with                                     |
+| --------------------------------------- | ------------------- | ------------------------------------------------------------------------ | ----------------------------------------------- |
+| `install.sh`                            | Linux · macOS · WSL | CLI proxy `:4000` + the `zim-claude` command                             | `./install.sh`                                  |
+| `windows\win-install.bat`               | Windows             | **both** proxies — `:4000` *and* the `:4002` gateway — plus `zim-claude` | `win-install.bat`                               |
+| `claude-desktop-integration/install.sh` | Linux · macOS       | the `:4002` gateway only                                                 | `cd claude-desktop-integration && ./install.sh` |
+| `claude-desktop-integration\install.cmd` | Windows            | the `:4002` gateway only, run in place                                   | `cd claude-desktop-integration && install.cmd`  |
 
-You normally only need the first one for your platform. The third exists for people who
-want the Claude Desktop gateway without the CLI side.
+You normally only need the first one for your platform. The last two exist for people
+who want the Claude Desktop gateway without the CLI side.
 
 > **On Windows, `win-install.bat` is the entry point** — it forwards every flag to
 > `win-install.ps1`, which holds the logic. It is a `.bat` so it can be double-clicked
@@ -84,11 +85,11 @@ want the Claude Desktop gateway without the CLI side.
 The installer checks for each of these and offers to install anything missing.
 **Nothing is installed without you answering `y`.**
 
-| Tool | If missing |
-|---|---|
-| `bash`, `curl`, `base64` | required — the installer reports and exits |
-| Claude Code (`claude`) | offers `curl -fsSL https://claude.ai/install.sh \| bash` |
-| `litellm` | offers to build a private virtualenv containing it |
+| Tool                     | If missing                                               |
+| ------------------------ | -------------------------------------------------------- |
+| `bash`, `curl`, `base64` | required — the installer reports and exits               |
+| Claude Code (`claude`)   | offers `curl -fsSL https://claude.ai/install.sh \| bash` |
+| `litellm`                | offers to build a private virtualenv containing it       |
 
 **You do not need litellm, pip, or a writable system Python.** If no `litellm` is
 found, the installer creates a virtualenv at `~/.local/share/zim-claude/venv` and
@@ -113,8 +114,8 @@ entirely.
 `venv` itself is the one thing that must be present. Debian/Ubuntu split it out of the
 interpreter package, and the installer detects that and names the fix:
 
-| Platform | If `python3 -m venv` is missing |
-|---|---|
+| Platform      | If `python3 -m venv` is missing |
+| ------------- | ------------------------------- |
 | Debian/Ubuntu | `sudo apt install python3-venv` |
 
 `pipx install 'litellm[proxy]'` also works if you prefer it — `start-litellm.sh` uses
@@ -139,14 +140,14 @@ directory to `PATH`.)
 
 ### What it puts where
 
-| Path | Purpose |
-|---|---|
-| `~/.local/bin/zim-claude` | the command |
-| `~/.local/bin/start-litellm.sh` | proxy manager: `start`/`stop`/`restart`/`status`/`logs` |
-| `~/claude-source/deepseek-claude` | the env profile (mode 600) |
-| `~/litellm-config.yaml` | LiteLLM proxy config |
-| `~/.local/share/zim-claude/venv/` | the proxy's private virtualenv (litellm + uvloop) |
-| `~/.local/share/zim-claude/` | install state + backups (mode 700) |
+| Path                              | Purpose                                                 |
+| --------------------------------- | ------------------------------------------------------- |
+| `~/.local/bin/zim-claude`         | the command                                             |
+| `~/.local/bin/start-litellm.sh`   | proxy manager: `start`/`stop`/`restart`/`status`/`logs` |
+| `~/claude-source/deepseek-claude` | the env profile (mode 600)                              |
+| `~/litellm-config.yaml`           | LiteLLM proxy config                                    |
+| `~/.local/share/zim-claude/venv/` | the proxy's private virtualenv (litellm + uvloop)       |
+| `~/.local/share/zim-claude/`      | install state + backups (mode 700)                      |
 
 Anything it would overwrite is backed up first, under
 `~/.local/share/zim-claude/backups/<timestamp>/`.
@@ -186,11 +187,11 @@ no Node, and no Administrator rights.
 One installer sets up **both** proxies, because on Windows they are always wanted
 together:
 
-| | CLI | Claude Desktop |
-|---|---|---|
-| Port | `4000` | `4002` |
-| Config | `%USERPROFILE%\litellm-config.yaml` | `%USERPROFILE%\.local\share\zim-claude\desktop\litellm-config.desktop.yaml` |
-| Log | `%USERPROFILE%\.local\share\zim-claude\logs\cli.log` | `...\logs\desktop.log` |
+|        | CLI                                                  | Claude Desktop                                                              |
+| ------ | ---------------------------------------------------- | --------------------------------------------------------------------------- |
+| Port   | `4000`                                               | `4002`                                                                      |
+| Config | `%USERPROFILE%\litellm-config.yaml`                  | `%USERPROFILE%\.local\share\zim-claude\desktop\litellm-config.desktop.yaml` |
+| Log    | `%USERPROFILE%\.local\share\zim-claude\logs\cli.log` | `...\logs\desktop.log`                                                      |
 
 It installs the same `zim-claude` command you get on Linux, into
 `%USERPROFILE%\.local\bin`:
@@ -249,11 +250,11 @@ the CLI proxy if it's down, exactly as on Linux.
 
 ### Windows requirements
 
-| Tool | If missing |
-|---|---|
-| Python 3.10+ | offers `winget install Python.Python.3.12` (litellm is a Python package) |
-| `litellm` | offers `python -m pip install --user "litellm[proxy]"` |
-| Claude Code | offers Anthropic's native installer, `irm https://claude.ai/install.ps1 \| iex` |
+| Tool         | If missing                                                                      |
+| ------------ | ------------------------------------------------------------------------------- |
+| Python 3.10+ | offers `winget install Python.Python.3.12` (litellm is a Python package)        |
+| `litellm`    | offers `python -m pip install --user "litellm[proxy]"`                          |
+| Claude Code  | offers Anthropic's native installer, `irm https://claude.ai/install.ps1 \| iex` |
 
 Claude Code on Windows needs **no** WSL, Node, or Administrator rights. It installs to
 `%USERPROFILE%\.local\bin\claude.exe`. [Git for Windows](https://git-scm.com/downloads/win)
@@ -319,6 +320,19 @@ dialog, and `windows\verify.ps1` proves the gateway answers.
 > back as `{"error":{"message":"No connected db.","type":"no_db_connection"}}` — LiteLLM
 > treats an unmatched key as a DB-backed virtual key and there is no DB.
 
+**Windows, gateway only** — if you don't want the CLI side installed at all, the desktop
+folder has its own Windows port of the Linux installer. It runs in place (nothing is
+copied into `.local\bin`) and drives the same `:4002` gateway:
+
+```bat
+cd claude-desktop-integration
+install.cmd
+```
+
+Manage it with `start-desktop-proxy.cmd status|gateway|logs|restart|stop` in that
+folder; the PID and log files are shared with `start-proxies`, so either manager can
+stop the proxy the other started.
+
 **Linux · macOS** — run the desktop installer:
 
 ```bash
@@ -332,15 +346,17 @@ touch `:4000` or your shell config.
 Then, in Claude Desktop:
 
 1. **Help → Troubleshooting → Enable Developer Mode**
-2. **Claude menu → Developer → Configure Third-Party Inference…**
-3. Connection section:
 
-   | Field | Value |
-   |---|---|
-   | Inference provider | `Gateway` |
-   | Gateway base URL | `http://127.0.0.1:4002` |
-   | Gateway API key | `sk-claude-desktop-local` |
-   | Gateway auth scheme | `bearer` |
+2. **Claude menu → Developer → Configure Third-Party Inference…**
+
+3. Connection section:
+   
+   | Field               | Value                     |
+   | ------------------- | ------------------------- |
+   | Inference provider  | `Gateway`                 |
+   | Gateway base URL    | `http://127.0.0.1:4002`   |
+   | Gateway API key     | `sk-claude-desktop-local` |
+   | Gateway auth scheme | `bearer`                  |
 
 4. **Apply Changes** (older builds: *Apply locally*), then **restart Claude Desktop**.
 
@@ -365,13 +381,13 @@ Windows, use the in-app dialog above.
 
 ### Desktop gateway configuration
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `CLAUDE_DESKTOP_PORT` | `4002` | proxy port |
-| `CLAUDE_DESKTOP_LITELLM_KEY` | `sk-claude-desktop-local` | gateway key (bearer) |
-| `CLAUDE_DESKTOP_CONFIG` | `./litellm-config.desktop.yaml` | proxy config |
-| `CLAUDE_DESKTOP_LOG` | `/tmp/litellm-desktop.log` | log file |
-| `LITELLM_ENV_FILE` | `~/claude-source/deepseek-claude` | profile with the upstream token |
+| Variable                     | Default                           | Meaning                         |
+| ---------------------------- | --------------------------------- | ------------------------------- |
+| `CLAUDE_DESKTOP_PORT`        | `4002`                            | proxy port                      |
+| `CLAUDE_DESKTOP_LITELLM_KEY` | `sk-claude-desktop-local`         | gateway key (bearer)            |
+| `CLAUDE_DESKTOP_CONFIG`      | `./litellm-config.desktop.yaml`   | proxy config                    |
+| `CLAUDE_DESKTOP_LOG`         | `/tmp/litellm-desktop.log`        | log file                        |
+| `LITELLM_ENV_FILE`           | `~/claude-source/deepseek-claude` | profile with the upstream token |
 
 ---
 
@@ -404,17 +420,17 @@ preferred over the private venv:
 `zim-claude` takes no flags of its own — every argument goes to `claude`. Configure it
 through environment variables:
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `LITELLM_ENV_FILE` | `~/claude-source/deepseek-claude` | profile to source |
-| `LITELLM_PORT` | `4000` | proxy port |
-| `LITELLM_LOG` | `/tmp/litellm-proxy.log` | proxy log |
-| `LITELLM_SERVICE` | `<install dir>/start-litellm.sh` | proxy manager |
-| `LITELLM_BIN` | (auto-detected) | pin an exact litellm binary |
-| `ZIM_CLAUDE_VENV` | `~/.local/share/zim-claude/venv` | where to look for the venv |
-| `ZIM_CLAUDE_BIN` | `claude` on `PATH` | which claude to run |
-| `ZIM_CLAUDE_NO_PROXY` | `0` | set to `1` to never touch the proxy |
-| `ZIM_CLAUDE_REQUIRE_PROXY` | `0` | set to `1` to hard-fail if the proxy is down |
+| Variable                   | Default                           | Meaning                                      |
+| -------------------------- | --------------------------------- | -------------------------------------------- |
+| `LITELLM_ENV_FILE`         | `~/claude-source/deepseek-claude` | profile to source                            |
+| `LITELLM_PORT`             | `4000`                            | proxy port                                   |
+| `LITELLM_LOG`              | `/tmp/litellm-proxy.log`          | proxy log                                    |
+| `LITELLM_SERVICE`          | `<install dir>/start-litellm.sh`  | proxy manager                                |
+| `LITELLM_BIN`              | (auto-detected)                   | pin an exact litellm binary                  |
+| `ZIM_CLAUDE_VENV`          | `~/.local/share/zim-claude/venv`  | where to look for the venv                   |
+| `ZIM_CLAUDE_BIN`           | `claude` on `PATH`                | which claude to run                          |
+| `ZIM_CLAUDE_NO_PROXY`      | `0`                               | set to `1` to never touch the proxy          |
+| `ZIM_CLAUDE_REQUIRE_PROXY` | `0`                               | set to `1` to hard-fail if the proxy is down |
 
 Using a different profile:
 

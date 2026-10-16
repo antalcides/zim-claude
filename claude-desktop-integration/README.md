@@ -63,36 +63,65 @@ one will tell you so if it finds none.
 
 ### Windows
 
-There is no separate Windows installer here. The repo's `windows\win-install.bat`
-installs **both** sides in one pass — the CLI proxy on `:4000` and this Desktop gateway
-on `:4002` — and starts them:
+Windows has its own port of the three scripts above, in this same folder. They run in
+place — nothing is copied to `.local\bin`, and the CLI proxy on `:4000` is not touched:
 
 ```bat
-cd windows
-win-install.bat
+cd claude-desktop-integration
+install.cmd
 ```
 
-Use `-SkipCli` if you want only the `:4002` gateway. The desktop config lands at
-`%USERPROFILE%\.local\share\zim-claude\desktop\litellm-config.desktop.yaml`, its log at
-`...\logs\desktop.log`, and `start-proxies.ps1 gateway` prints the three values below.
-Verify with `windows\verify.ps1`.
+`install.cmd` checks the prerequisites (litellm ≥ 1.100.1, the env profile), starts the
+proxy and prints the exact values to paste into Claude Desktop. Manage it afterwards
+with the PowerShell counterpart of `start-desktop-proxy.sh`:
 
-**`--managed` is Linux-only.** The no-click managed-settings route writes
-`/etc/claude-desktop/managed-settings.json` with sudo, which has no Windows equivalent
-here. On Windows, use the in-app dialog described below.
+```bat
+start-desktop-proxy.cmd status
+start-desktop-proxy.cmd gateway        rem the 3 values for the Desktop UI
+start-desktop-proxy.cmd logs
+start-desktop-proxy.cmd restart
+start-desktop-proxy.cmd stop
+```
+
+and prove it answers with `verify.cmd` — the Windows port of `verify.sh`. (In cmd the
+names above work as typed; PowerShell needs the `.\` prefix — `.\install.cmd` — because
+it does not search the current directory. Every `.ps1` here has such a `.cmd` shim for
+the same reason `windows\` does: a bare `.ps1` is blocked by the default execution
+policy.)
+
+Two Windows-specific notes:
+
+- **The PID and log files are shared with `windows\start-proxies.ps1`** — the manager
+  `windows\win-install.bat` installs — under
+  `%USERPROFILE%\.local\share\zim-claude\{run,logs}`. Both managers therefore track the
+  same proxy: start with one, `stop`/`status` with the other. The config served is
+  still this folder's `litellm-config.desktop.yaml`; point `CLAUDE_DESKTOP_CONFIG` at
+  the installed copy (`...\desktop\litellm-config.desktop.yaml`) if you hand-edit that
+  one instead.
+- **`--managed` is Linux-only.** The no-click managed-settings route writes
+  `/etc/claude-desktop/managed-settings.json` with sudo, which has no Windows
+  equivalent — `install.cmd -Managed` refuses for exactly that reason. On Windows, use
+  the in-app dialog described below.
+
+The repo-level `windows\win-install.bat` remains the installer that sets up **both**
+sides in one pass — the CLI proxy on `:4000` and this Desktop gateway on `:4002` —
+copying its scripts into `%USERPROFILE%\.local\bin`. Use it when you want the CLI side
+too; use `install.cmd` when you do not.
 
 Then, in Claude Desktop:
 
 1. **Help → Troubleshooting → Enable Developer Mode**
-2. **Claude menu → Developer → Configure Third-Party Inference…**
-3. Connection section:
 
-   | Field | Value |
-   |---|---|
-   | Inference provider | `Gateway` |
-   | Gateway base URL | `http://127.0.0.1:4002` |
-   | Gateway API key | `sk-claude-desktop-local` |
-   | Gateway auth scheme | `bearer` |
+2. **Claude menu → Developer → Configure Third-Party Inference…**
+
+3. Connection section:
+   
+   | Field               | Value                     |
+   | ------------------- | ------------------------- |
+   | Inference provider  | `Gateway`                 |
+   | Gateway base URL    | `http://127.0.0.1:4002`   |
+   | Gateway API key     | `sk-claude-desktop-local` |
+   | Gateway auth scheme | `bearer`                  |
 
 4. **Apply Changes** (older builds: *Apply locally*), then **restart Claude Desktop**.
 
@@ -122,6 +151,8 @@ show a *managed configuration* notice — that is expected.
 ./start-desktop-proxy.sh stop
 ```
 
+On Windows the same actions live in `start-desktop-proxy.cmd` (see above).
+
 ## Verify
 
 ```bash
@@ -133,13 +164,17 @@ and a real `POST /v1/messages` round-trip.
 
 ## Configuration
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `CLAUDE_DESKTOP_PORT` | `4002` | proxy port |
-| `CLAUDE_DESKTOP_LITELLM_KEY` | `sk-claude-desktop-local` | gateway key (bearer) |
-| `CLAUDE_DESKTOP_CONFIG` | `./litellm-config.desktop.yaml` | proxy config |
-| `CLAUDE_DESKTOP_LOG` | `/tmp/litellm-desktop.log` | log file |
-| `LITELLM_ENV_FILE` | `~/claude-source/deepseek-claude` | profile with the upstream token |
+| Variable                     | Default                           | Meaning                         |
+| ---------------------------- | --------------------------------- | ------------------------------- |
+| `CLAUDE_DESKTOP_PORT`        | `4002`                            | proxy port                      |
+| `CLAUDE_DESKTOP_LITELLM_KEY` | `sk-claude-desktop-local`         | gateway key (bearer)            |
+| `CLAUDE_DESKTOP_CONFIG`      | `./litellm-config.desktop.yaml`   | proxy config                    |
+| `CLAUDE_DESKTOP_LOG`         | `/tmp/litellm-desktop.log`        | log file                        |
+| `LITELLM_ENV_FILE`           | `~/claude-source/deepseek-claude` | profile with the upstream token |
+
+On Windows, `/tmp` does not exist: the log defaults to
+`%USERPROFILE%\.local\share\zim-claude\logs\desktop.log` and the PID file to `...\run\desktop.pid`
+(both shared with `start-proxies.ps1`; `CLAUDE_DESKTOP_LOG` moves the error log with it).
 
 Use a different upstream profile:
 
@@ -149,13 +184,16 @@ LITELLM_ENV_FILE=~/claude-source/some-other-model ./start-desktop-proxy.sh resta
 
 ## Files
 
-| File | Purpose |
-|---|---|
-| `litellm-config.desktop.yaml` | LiteLLM config: claude-named aliases, `drop_params`, master key |
-| `start-desktop-proxy.sh` | start/stop/status/logs for the `:4002` proxy |
-| `managed-settings.json` | Third-Party Inference config (flat gateway form) |
-| `install.sh` | glue: checks, permissions, optional managed settings, start, instructions |
-| `verify.sh` | endpoint + model-name checks |
+| File                          | Purpose                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `litellm-config.desktop.yaml` | LiteLLM config: claude-named aliases, `drop_params`, master key           |
+| `start-desktop-proxy.sh`      | start/stop/status/logs for the `:4002` proxy                              |
+| `managed-settings.json`       | Third-Party Inference config (flat gateway form)                          |
+| `install.sh`                  | glue: checks, permissions, optional managed settings, start, instructions |
+| `verify.sh`                   | endpoint + model-name checks                                              |
+| `install.ps1` + `.cmd`        | Windows port of `install.sh` (managed settings refused — Linux-only)      |
+| `start-desktop-proxy.ps1` + `.cmd` | Windows port of `start-desktop-proxy.sh`                            |
+| `verify.ps1` + `.cmd`         | Windows port of `verify.sh`                                               |
 
 ## Caveats
 

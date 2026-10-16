@@ -230,9 +230,14 @@ function Start-OneProxy {
   }
 
   $errLog = Join-Path $LogDir "$($Proxy.Name).err.log"
+
+  # Start-Process joins -ArgumentList with spaces and never quotes the
+  # elements. An unquoted config path containing a space - "C:\Users\Rafael
+  # Olivo\..." - reaches litellm as two arguments and dies with "Unknown
+  # command: Olivo\...". Quote the path so the child sees one argument.
   try {
     $proc = Start-Process -FilePath $bin `
-                          -ArgumentList @('--config', $Proxy.Config, '--port', "$($Proxy.Port)") `
+                          -ArgumentList @('--config', ('"{0}"' -f $Proxy.Config), '--port', "$($Proxy.Port)") `
                           -WindowStyle Hidden -PassThru `
                           -RedirectStandardOutput $Proxy.Log `
                           -RedirectStandardError $errLog

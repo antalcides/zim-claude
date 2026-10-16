@@ -302,6 +302,108 @@ else
   fail ".gitattributes present" "a Windows checkout with autocrlf=true would corrupt the bash scripts"
 fi
 
+# ------------------------------------------------- desktop folder Windows ----
+
+section "claude-desktop-integration Windows artifacts"
+
+# The desktop folder ships its own Windows port of install.sh,
+# start-desktop-proxy.sh and verify.sh. Same failure modes as windows/: the
+# files must exist and the shims must point at the right targets - a rename
+# would break the documented commands silently.
+for f in install.ps1 install.cmd start-desktop-proxy.ps1 start-desktop-proxy.cmd \
+         verify.ps1 verify.cmd; do
+  if [[ -f "$REPO/claude-desktop-integration/$f" ]]; then
+    pass "claude-desktop-integration/$f present"
+  else fail "claude-desktop-integration/$f present"; fi
+done
+
+for base in install start-desktop-proxy verify; do
+  if grep -q "$base\.ps1" "$REPO/claude-desktop-integration/$base.cmd" 2>/dev/null; then
+    pass "$base.cmd invokes $base.ps1"
+  else fail "$base.cmd does not reference $base.ps1"; fi
+done
+
+for f in install.cmd start-desktop-proxy.cmd verify.cmd; do
+  if grep -q 'exit /b %ERRORLEVEL%' "$REPO/claude-desktop-integration/$f" 2>/dev/null; then
+    pass "$f propagates ERRORLEVEL"
+  else fail "$f does not propagate ERRORLEVEL"; fi
+done
+
+for f in install.cmd start-desktop-proxy.cmd verify.cmd; do
+  if grep -q -- '-ExecutionPolicy Bypass' "$REPO/claude-desktop-integration/$f" 2>/dev/null; then
+    pass "$f passes -ExecutionPolicy Bypass"
+  else fail "$f does not pass -ExecutionPolicy Bypass"; fi
+done
+
+# Every .ps1 needs a shim beside it, exactly as in windows/.
+for ps1 in "$REPO"/claude-desktop-integration/*.ps1; do
+  [[ -f "$ps1" ]] || continue
+  base="$(basename "$ps1" .ps1)"
+  if [[ -f "$REPO/claude-desktop-integration/$base.cmd" || -f "$REPO/claude-desktop-integration/$base.bat" ]]; then
+    pass "claude-desktop-integration/$base.ps1 has a shim"
+  else
+    fail "claude-desktop-integration/$base.ps1 has no .cmd/.bat shim" \
+         "a bare .ps1 is blocked by the default Windows execution policy"
+  fi
+done
+
+# Pure ASCII, for the same reason as windows/: PowerShell 5.1 decodes a
+# BOM-less .ps1 with the machine's ANSI codepage, and one em dash inside a
+# "..." string ends the string early and breaks the parse far away.
+for f in "$REPO"/claude-desktop-integration/*.ps1 "$REPO"/claude-desktop-integration/*.cmd; do
+  [[ -f "$f" ]] || continue
+  if LC_ALL=C grep -q '[^[:print:][:space:]]' "$f" 2>/dev/null; then
+    fail "claude-desktop-integration/$(basename "$f") is pure ASCII" \
+         "non-ASCII bytes misparse under PowerShell 5.1 / cmd.exe on a non-UTF-8 codepage"
+  else
+    pass "claude-desktop-integration/$(basename "$f") is pure ASCII"
+  fi
+done
+
+# No hardcoded home directory in the Windows scripts, as in windows/.
+if hits="$(grep -rniE 'C:\\Users\\[A-Za-z0-9._-]+' "$REPO/claude-desktop-integration" \
+           --include='*.ps1' --include='*.cmd' 2>/dev/null)"; then
+  fail "no hardcoded C:\\Users\\<name> in the desktop Windows scripts" "$hits"
+else pass "no hardcoded C:\\Users\\<name> in the desktop Windows scripts"; fi
+
+# The desktop manager must be self-contained: it may not invoke the repo-level
+# start-proxies.ps1, because it has to work in a clone that never ran
+# win-install.bat. Interop with that manager comes from shared PID/log file
+# names under the same state dir, not from calling it.
+if grep -q 'start-proxies\.ps1' "$REPO/claude-desktop-integration/start-desktop-proxy.ps1" 2>/dev/null; then
+  fail "start-desktop-proxy.ps1 is self-contained" \
+       "it must not depend on the manager that windows\\win-install.bat installs"
+else pass "start-desktop-proxy.ps1 is self-contained"; fi
+
+# The :4002 default is the desktop side's whole identity - separate from the
+# CLI proxy's :4000 - so it is pinned here.
+if grep -qF 'else { $Port = 4002 }' "$REPO/claude-desktop-integration/start-desktop-proxy.ps1" 2>/dev/null; then
+  pass "start-desktop-proxy.ps1 defaults to :4002"
+else fail "start-desktop-proxy.ps1 does not default to :4002"; fi
+
+# Start-Process joins -ArgumentList with spaces and never quotes the elements,
+# so an unquoted config path containing a space (C:\Users\First Last\...) is
+# split by litellm into two arguments. This bit for real on this repo's own
+# machine: litellm died with "Unknown command: Olivo\.local\share\...". The
+# config path must go through a format string that wraps it in literal quotes.
+if grep -qF -- "--config', ('\"{0}\"' -f" "$REPO/claude-desktop-integration/start-desktop-proxy.ps1" 2>/dev/null; then
+  pass "start-desktop-proxy.ps1 quotes the config path for Start-Process"
+else
+  fail "start-desktop-proxy.ps1 passes an unquoted path to Start-Process" \
+       "a config path with a space is split by litellm: 'Unknown command: <path tail>'"
+fi
+
+# A stale PID file that this account cannot overwrite - one created by an
+# elevated session is typical - must abort the start BEFORE litellm is
+# spawned, or the proxy comes up with nothing tracking it.
+write_probe="$(awk '/^function Test-Writable/,/^}/' "$REPO/claude-desktop-integration/start-desktop-proxy.ps1")"
+if [[ -n "$write_probe" ]] && grep -qF '[IO.File]::Open' <<<"$write_probe"; then
+  pass "PID/log files probed for writability before spawn"
+else
+  fail "no writability probe before spawn" \
+       "an unwritable PID file would orphan the proxy it just started"
+fi
+
 # ---------------------------------------------------------------- sandbox ---
 
 SBX="$(mktemp -d "${TMPDIR:-/tmp}/zim-test-XXXXXX")"
